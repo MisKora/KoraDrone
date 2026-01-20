@@ -55,7 +55,6 @@ app.get("/", async (req, res) => {
       return res.send("No se pudo obtener request token");
     }
 
-    // ✅ GUARDAR SECRET EN COOKIE (NO en memoria)
     res.cookie("oauth_token_secret", oauthTokenSecret, {
       httpOnly: true,
       secure: true,
@@ -76,7 +75,6 @@ app.get("/", async (req, res) => {
    ========================= */
 app.get("/callback", async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query;
-
   const oauth_token_secret = req.cookies.oauth_token_secret;
 
   if (!oauth_token || !oauth_verifier || !oauth_token_secret) {
@@ -100,10 +98,12 @@ app.get("/callback", async (req, res) => {
 
     const response = await axios.post(
       requestData.url,
-      null,
+      new URLSearchParams({ oauth_verifier }),
       {
-        headers,
-        params: { oauth_verifier },
+        headers: {
+          ...headers,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
       }
     );
 
@@ -118,7 +118,6 @@ app.get("/callback", async (req, res) => {
 
     await updateProfile(accessToken, accessSecret, userId);
 
-    // limpiar cookie y volver a Twitter
     res.clearCookie("oauth_token_secret");
     res.redirect("https://twitter.com/home");
 
