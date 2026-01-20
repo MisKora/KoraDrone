@@ -11,5 +11,12 @@
     "axios": "^1.6.8",
     "express": "^4.19.2",
     "oauth-1.0a": "^2.2.6"
-  }
+  },
+  "dependencies": {
+  "axios": "^1.13.2",
+  "express": "^5.2.1",
+  "oauth-1.0a": "^2.2.6",
+  "cookie-parser": "^1.4.6"
+}
+
 }
