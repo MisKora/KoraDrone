@@ -11,6 +11,10 @@ const app = express();
 const API_KEY = process.env.API_KEY;
 const API_SECRET = process.env.API_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL;
+
+if (!API_KEY || !API_SECRET || !CALLBACK_URL) {
+  throw new Error("Faltan variables de entorno (API_KEY, API_SECRET, CALLBACK_URL)");
+}
 /* ========================= */
 
 const requestTokens = new Map();
@@ -37,13 +41,14 @@ app.get("/", async (req, res) => {
       data: { oauth_callback: CALLBACK_URL },
     };
 
-    const headers = oauth.toHeader(
-      oauth.authorize(requestData)
-    );
+    const headers = {
+      ...oauth.toHeader(oauth.authorize(requestData)),
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
 
     const response = await axios.post(
       requestData.url,
-      new URLSearchParams({ oauth_callback: CALLBACK_URL }),
+      new URLSearchParams({ oauth_callback: CALLBACK_URL }).toString(),
       { headers }
     );
 
@@ -88,13 +93,14 @@ app.get("/callback", async (req, res) => {
       secret: oauth_token_secret,
     };
 
-    const headers = oauth.toHeader(
-      oauth.authorize(requestData, token)
-    );
+    const headers = {
+      ...oauth.toHeader(oauth.authorize(requestData, token)),
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
 
     const response = await axios.post(
       requestData.url,
-      new URLSearchParams({ oauth_verifier }),
+      new URLSearchParams({ oauth_verifier }).toString(),
       { headers }
     );
 
@@ -111,7 +117,6 @@ app.get("/callback", async (req, res) => {
 
     requestTokens.delete(oauth_token);
     res.redirect("https://twitter.com/home");
-
   } catch (err) {
     console.error("ERROR ACCESS TOKEN:", err.response?.data || err.message);
     res.send("Error finalizando autenticación");
@@ -142,19 +147,22 @@ async function updateProfile(tokenKey, tokenSecret, userId) {
 async function signedPost(url, token, data) {
   const requestData = { url, method: "POST", data };
 
-  const headers = oauth.toHeader(
-    oauth.authorize(requestData, token)
-  );
+  const headers = {
+    ...oauth.toHeader(oauth.authorize(requestData, token)),
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
 
   await axios.post(
     url,
-    new URLSearchParams(data),
+    new URLSearchParams(data).toString(),
     { headers }
   );
 }
 
-/* ========================= */
+/* =========================
+   LISTEN (PRODUCCIÓN OK)
+   ========================= */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor listo en puerto", PORT);
 });
