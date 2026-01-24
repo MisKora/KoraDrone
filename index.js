@@ -26,7 +26,7 @@ const oauth = OAuth({
 });
 
 /* =========================
-   PASO 1: LOGIN
+   LOGIN
    ========================= */
 app.get("/", async (req, res) => {
   try {
@@ -36,85 +36,57 @@ app.get("/", async (req, res) => {
       data: { oauth_callback: CALLBACK_URL }
     };
 
-    const headers = oauth.toHeader(
-      oauth.authorize(requestData)
-    );
+    const headers = oauth.toHeader(oauth.authorize(requestData));
 
     const r = await axios.post(
       requestData.url,
       new URLSearchParams({ oauth_callback: CALLBACK_URL }),
-      {
-        headers: {
-          ...headers,
-          "Content-Type": "application/x-www-form-urlencoded"
-        }
-      }
+      { headers }
     );
 
     const p = new URLSearchParams(r.data);
     const token = p.get("oauth_token");
     const secret = p.get("oauth_token_secret");
 
-    if (!token || !secret) {
-      return res.send("No se pudo obtener request token");
-    }
-
     requestTokens.set(token, secret);
 
-    res.redirect(
-      `https://api.twitter.com/oauth/authorize?oauth_token=${token}`
-    );
+    res.redirect(`https://api.twitter.com/oauth/authorize?oauth_token=${token}`);
   } catch (e) {
-    console.error("REQUEST TOKEN ERROR:", e.response?.data || e.message);
+    console.error("LOGIN ERROR:", e.response?.data || e.message);
     res.send("Error iniciando login con X");
   }
 });
 
 /* =========================
-   PASO 2: CALLBACK
+   CALLBACK
    ========================= */
 app.get("/callback", async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query;
   const secret = requestTokens.get(oauth_token);
 
-  if (!oauth_token || !oauth_verifier || !secret) {
-    return res.send("Request token no encontrado");
-  }
-
   try {
-    const requestData = {
-      url: "https://api.twitter.com/oauth/access_token",
-      method: "POST"
-    };
-
     const headers = oauth.toHeader(
-      oauth.authorize(requestData, {
-        key: oauth_token,
-        secret
-      })
+      oauth.authorize(
+        { url: "https://api.twitter.com/oauth/access_token", method: "POST" },
+        { key: oauth_token, secret }
+      )
     );
 
     const r = await axios.post(
-      requestData.url,
+      "https://api.twitter.com/oauth/access_token",
       new URLSearchParams({ oauth_verifier }),
-      {
-        headers: {
-          ...headers,
-          "Content-Type": "application/x-www-form-urlencoded"
-        }
-      }
+      { headers }
     );
 
     const p = new URLSearchParams(r.data);
 
-    await updateEverything(
-      p.get("oauth_token"),
-      p.get("oauth_token_secret"),
-      p.get("user_id")
-    );
+    const accessToken = p.get("oauth_token");
+    const accessSecret = p.get("oauth_token_secret");
 
-    requestTokens.delete(oauth_token);
+    await updateProfileImage(accessToken, accessSecret);
+
     res.redirect("https://twitter.com/home");
+
   } catch (e) {
     console.error("ACCESS TOKEN ERROR:", e.response?.data || e.message);
     res.send("Error finalizando autenticación");
@@ -122,77 +94,53 @@ app.get("/callback", async (req, res) => {
 });
 
 /* =========================
-   UPDATE TODO
+   SUBIR IMAGEN A MEDIA API
    ========================= */
-async function updateEverything(key, secret, id) {
-  await updateProfile(key, secret, id);
-  await updateImage(key, secret, "profile.jpg", "profile_image");
-  await updateImage(key, secret, "banner.jpg", "profile_banner");
+async function uploadImage(key, secret) {
+  const mediaData = fs.readFileSync("profile.jpg").toString("base64");
+
+  const requestData = {
+    url: "https://upload.twitter.com/1.1/media/upload.json",
+    method: "POST"
+  };
+
+  const headers = oauth.toHeader(
+    oauth.authorize(requestData, { key, secret })
+  );
+
+  const r = await axios.post(
+    requestData.url,
+    new URLSearchParams({ media_data: mediaData }),
+    { headers }
+  );
+
+  return r.data.media_id_string;
 }
 
 /* =========================
-   TEXTO
+   APLICAR FOTO PERFIL
    ========================= */
-async function updateProfile(key, secret, id) {
+async function updateProfileImage(key, secret) {
+  const mediaId = await uploadImage(key, secret);
+
+  const requestData = {
+    url: "https://api.twitter.com/1.1/account/update_profile_image.json",
+    method: "POST"
+  };
+
   const headers = oauth.toHeader(
-    oauth.authorize(
-      {
-        url: "https://api.twitter.com/1.1/account/update_profile.json",
-        method: "POST"
-      },
-      { key, secret }
-    )
+    oauth.authorize(requestData, { key, secret })
   );
 
   await axios.post(
-    "https://api.twitter.com/1.1/account/update_profile.json",
-    new URLSearchParams({
-      name: `PROPAGANDA FOR THE GODDESS KORA #${id}`,
-      description:
-        "This account has been infected by the goddess Kora, do not resist and fall before her too: sent.bio/mistresskorra.",
-      url: "https://x.com/sissyslutty21"
-    }),
-    {
-      headers: {
-        ...headers,
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
-    }
-  );
-}
-
-/* =========================
-   IMÁGENES
-   ========================= */
-async function updateImage(key, secret, file, endpoint) {
-  const data = new FormData();
-  data.append("media", fs.createReadStream(file));
-
-  const headers = oauth.toHeader(
-    oauth.authorize(
-      {
-        url: `https://api.twitter.com/1.1/account/update_${endpoint}.json`,
-        method: "POST"
-      },
-      { key, secret }
-    )
+    requestData.url,
+    new URLSearchParams({ media_id: mediaId }),
+    { headers }
   );
 
-  await axios.post(
-    `https://api.twitter.com/1.1/account/update_${endpoint}.json`,
-    data,
-    {
-      headers: {
-        ...headers,
-        ...data.getHeaders()
-      }
-    }
-  );
+  console.log("✅ Foto de perfil actualizada");
 }
 
 /* ========================= */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Servidor listo en puerto", PORT);
-});
-
+app.listen(PORT, () => console.log("Servidor listo en puerto", PORT));
