@@ -2,18 +2,18 @@ const express = require("express");
 const crypto = require("crypto");
 const OAuth = require("oauth-1.0a");
 const axios = require("axios");
-const cookieParser = require("cookie-parser");
 
 const app = express();
-app.use(cookieParser());
 
 /* =========================
-   CONFIGURACIÓN
+   CONFIGURACIÓN (ENV)
    ========================= */
-const API_KEY = "HqsQ2W9X8nYEB4tUeQhbgA86s";
-const API_SECRET = "50auXIbpm7T6oiFMK8iiNTQI9kuYUE97UrVGmEuVSy6JgDexua";
-const CALLBACK_URL = "https://koradrone-1.onrender.com/callback";
+const API_KEY = process.env.API_KEY;
+const API_SECRET = process.env.API_SECRET;
+const CALLBACK_URL = process.env.CALLBACK_URL;
 /* ========================= */
+
+const requestTokens = new Map();
 
 const oauth = OAuth({
   consumer: { key: API_KEY, secret: API_SECRET },
@@ -55,11 +55,7 @@ app.get("/", async (req, res) => {
       return res.send("No se pudo obtener request token");
     }
 
-    res.cookie("oauth_token_secret", oauthTokenSecret, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-    });
+    requestTokens.set(oauthToken, oauthTokenSecret);
 
     res.redirect(
       `https://api.twitter.com/oauth/authorize?oauth_token=${oauthToken}`
@@ -75,7 +71,7 @@ app.get("/", async (req, res) => {
    ========================= */
 app.get("/callback", async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query;
-  const oauth_token_secret = req.cookies.oauth_token_secret;
+  const oauth_token_secret = requestTokens.get(oauth_token);
 
   if (!oauth_token || !oauth_verifier || !oauth_token_secret) {
     return res.send("Request token no encontrado");
@@ -99,12 +95,7 @@ app.get("/callback", async (req, res) => {
     const response = await axios.post(
       requestData.url,
       new URLSearchParams({ oauth_verifier }),
-      {
-        headers: {
-          ...headers,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
+      { headers }
     );
 
     const params = new URLSearchParams(response.data);
@@ -118,7 +109,7 @@ app.get("/callback", async (req, res) => {
 
     await updateProfile(accessToken, accessSecret, userId);
 
-    res.clearCookie("oauth_token_secret");
+    requestTokens.delete(oauth_token);
     res.redirect("https://twitter.com/home");
 
   } catch (err) {
@@ -162,6 +153,8 @@ async function signedPost(url, token, data) {
   );
 }
 
-app.listen(3000, () => {
-  console.log("Servidor listo");
+/* ========================= */
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("Servidor listo en puerto", PORT);
 });
