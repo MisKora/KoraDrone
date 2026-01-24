@@ -10,8 +10,8 @@ const app = express();
 /* =========================
    CONFIGURACIÓN FIJA
    ========================= */
-const API_KEY = "HwCaO9m48E1SLtmW5hbk1vJBz";
-const API_SECRET = "FI2ti9pX3mKfhAWfJfe4yNUcF4NJGqso1pcjIlrRcb1r2dHc51";
+const API_KEY = "xRDmp6nGSxVBZhLTBN6XIufrr";
+const API_SECRET = "Y6Io44b92DtMzIL4MOWvqQ8ao5eYXB1hhrnmSuEB4XcvuP7kfV";
 const CALLBACK_URL = "https://koradrone-production.up.railway.app/callback";
 /* ========================= */
 
@@ -195,3 +195,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor listo en puerto", PORT);
 });
+
