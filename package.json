@@ -1,22 +1,15 @@
 {
   "name": "koradrone",
   "version": "1.0.0",
-  "description": "Kora drone OAuth app",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "axios": "^1.6.8",
-    "express": "^4.19.2",
-    "oauth-1.0a": "^2.2.6"
-  },
-  "dependencies": {
-  "axios": "^1.13.2",
-  "express": "^5.2.1",
-  "oauth-1.0a": "^2.2.6",
-  "cookie-parser": "^1.4.6"
-}
-
+    "axios": "^1.6.7",
+    "express": "^4.18.2",
+    "oauth-1.0a": "^2.2.6",
+    "form-data": "^4.0.0"
+  }
 }
